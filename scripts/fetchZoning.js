@@ -9,6 +9,8 @@ const PAGE_SIZE = 2000;
 const LAYERS = [
   { id: 15, file: 'zoning.json' },
   { id: 2, file: 'historic.json' },
+  { id: 19, file: 'demolition.json' },
+  { id: 5, file: 'nso.json' },
 ];
 
 async function fetchPage(layerId, offset) {

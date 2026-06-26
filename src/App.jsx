@@ -6,6 +6,8 @@ import historicData from './data/historic.json'
 import { lookupZoning } from './data/zoningInfo'
 import CollapsibleRow from './CollapsibleRow'
 import './App.css'
+import demolitionData from './data/demolition.json'
+import nsoData from './data/nso.json'
 
 // Ray-casting point-in-polygon test.
 function pointInRing(point, ring) {
@@ -23,6 +25,34 @@ function pointInRing(point, ring) {
 
 function findHistoricDistrict(lngLat) {
   for (const feature of historicData.features) {
+    const geom = feature.geometry
+    if (!geom) continue
+    const polygons = geom.type === 'Polygon' ? [geom.coordinates] : geom.coordinates
+    for (const polygon of polygons) {
+      if (pointInRing(lngLat, polygon[0])) {
+        return feature.properties
+      }
+    }
+  }
+  return null
+}
+
+function findDemolitionDelay(lngLat) {
+  for (const feature of demolitionData.features) {
+    const geom = feature.geometry
+    if (!geom) continue
+    const polygons = geom.type === 'Polygon' ? [geom.coordinates] : geom.coordinates
+    for (const polygon of polygons) {
+      if (pointInRing(lngLat, polygon[0])) {
+        return feature.properties
+      }
+    }
+  }
+  return null
+}
+
+function findNSO(lngLat) {
+  for (const feature of nsoData.features) {
     const geom = feature.geometry
     if (!geom) continue
     const polygons = geom.type === 'Polygon' ? [geom.coordinates] : geom.coordinates
@@ -124,11 +154,14 @@ export default function App() {
   const markerRef = useRef(null)
 
   const [input, setInput] = useState('')
+  const [showIntro, setShowIntro] = useState(true)
   const [result, setResult] = useState(null)
   const [message, setMessage] = useState('')
   const [historic, setHistoric] = useState(null)
   const [flood, setFlood] = useState(null)
   const [oz, setOz] = useState(null)
+  const [demo, setDemo] = useState(null)
+  const [nso, setNso] = useState(null)
 
   useEffect(() => {
     if (map.current) return
@@ -239,6 +272,20 @@ export default function App() {
         setHistoric(null)
       }
 
+      const demoProps = findDemolitionDelay(lngLat)
+      if (demoProps) {
+        setDemo({ name: demoProps.NAME, notes: demoProps.NOTES })
+      } else {
+        setDemo(null)
+      }
+
+      const nsoProps = findNSO(lngLat)
+      if (nsoProps) {
+        setNso({ name: nsoProps.COMMON_NAME, notes: nsoProps.NOTES })
+      } else {
+        setNso(null)
+      }
+
       setFlood({ loading: true })
       fetchFloodZone(lngLat[0], lngLat[1]).then((attrs) => {
         setFlood(interpretFlood(attrs) || { none: true })
@@ -257,6 +304,7 @@ export default function App() {
 
   const search = async () => {
     if (!input.trim()) return
+    setShowIntro(false)
     setMessage('Searching...')
 
     try {
@@ -296,6 +344,31 @@ export default function App() {
     <div className="app">
       <div ref={mapContainer} className="map" />
 
+      {showIntro && (
+        <div className="intro-overlay">
+          <div className="intro-card">
+            <button className="intro-close" onClick={() => setShowIntro(false)} aria-label="Close">
+              ×
+            </button>
+            <div className="intro-eyebrow">Dallas, Texas</div>
+            <h2 className="intro-title">Site Feasibility</h2>
+            <p className="intro-lede">
+              This Site Feasibility Tool compiles important information from scattered public records, providing a quick snapshot of a searchable site. I made this tool to practice my geospatial coding skills, any implementation of this tool should be cross-referenced and verified. 
+              - Maggie Coleman
+            </p>
+            <div className="intro-search">
+              <input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && search()}
+                placeholder="Search an address, or close to explore the map"
+              />
+              <button onClick={search}>Search</button>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <div className="panel">
         <h1>Dallas Site Feasibility</h1>
         <p className="subtitle">Click the map or search an address</p>
@@ -359,6 +432,39 @@ export default function App() {
                 </CollapsibleRow>
               ) : (
                 <CollapsibleRow label="Historic District:" value="No" />
+              )}
+
+              {demo && (
+                <CollapsibleRow label="Demolition Delay:" value={`Yes (${demo.name})`}>
+                  <p className="crow-desc">
+                    This site is in a Demolition Delay Overlay. Demolition permits can
+                    be delayed up to 45 days to allow time to explore preservation
+                    alternatives. It does not prevent demolition, but adds a review period.
+                  </p>
+                  {demo.notes && demo.notes.trim() && (
+                    <p className="crow-meta"><strong>Notes:</strong> {demo.notes}</p>
+                  )}
+                  <a className="crow-source" href="https://experience.arcgis.com/experience/c1ac5a0d0c4044f6976e6294409185a2/page/Dallas-Zoning" target="_blank" rel="noreferrer">
+                    Verify on Dallas Zoning Map →
+                  </a>
+                </CollapsibleRow>
+              )}
+
+{nso && (
+                <CollapsibleRow label="Neighborhood Overlay:" value={`Yes (${nso.name})`}>
+                  <p className="crow-desc">
+                    This site is in a Neighborhood Stabilization Overlay, which sets
+                    extra standards (such as lot size, setbacks, height, and massing) to
+                    keep new construction and major remodels in scale with the existing
+                    neighborhood. Expect added review beyond base zoning.
+                  </p>
+                  {nso.notes && nso.notes.trim() && (
+                    <p className="crow-meta"><strong>Notes:</strong> {nso.notes}</p>
+                  )}
+                  <a className="crow-source" href="https://experience.arcgis.com/experience/c1ac5a0d0c4044f6976e6294409185a2/page/Dallas-Zoning" target="_blank" rel="noreferrer">
+                    Verify on Dallas Zoning Map →
+                  </a>
+                </CollapsibleRow>
               )}
 
               {flood && flood.loading && (
