@@ -487,3 +487,54 @@
 .intro-search button:hover {
   background: #1d5f7a;
 }
+
+/* --- Layer toggle legend --- */
+.legend {
+  position: absolute;
+  bottom: 24px;
+  right: 24px;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+  padding: 14px 16px;
+  z-index: 1;
+  font-size: 13px;
+}
+.legend-title {
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #888;
+  margin-bottom: 10px;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  color: #1a1a1a;
+}
+.legend-item input {
+  cursor: pointer;
+  margin: 0;
+  accent-color: #277da1;
+}
+.legend-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  flex-shrink: 0;
+}
+.legend-note {
+  font-size: 11px;
+  color: #999;
+  font-style: italic;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #eee;
+  max-width: 180px;
+  line-height: 1.4;
+}

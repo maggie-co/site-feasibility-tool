@@ -8,6 +8,7 @@ import CollapsibleRow from './CollapsibleRow'
 import './App.css'
 import demolitionData from './data/demolition.json'
 import nsoData from './data/nso.json'
+import ozData from './data/opportunity-zones.json'
 
 // Ray-casting point-in-polygon test.
 function pointInRing(point, ring) {
@@ -162,6 +163,12 @@ export default function App() {
   const [oz, setOz] = useState(null)
   const [demo, setDemo] = useState(null)
   const [nso, setNso] = useState(null)
+  const [layers, setLayers] = useState({
+    zoning: true,
+    historic: false,
+    nso: false,
+    oz: false,
+  })
 
   useEffect(() => {
     if (map.current) return
@@ -204,6 +211,7 @@ export default function App() {
         id: 'historic-fill',
         type: 'fill',
         source: 'historic',
+        layout: { visibility: 'none' },
         paint: { 'fill-color': '#B5179E', 'fill-opacity': 0.3 },
       })
 
@@ -211,7 +219,46 @@ export default function App() {
         id: 'historic-outline',
         type: 'line',
         source: 'historic',
+        layout: { visibility: 'none' },
         paint: { 'line-color': '#B5179E', 'line-width': 1.5 },
+      })
+
+      // Neighborhood Stabilization Overlay layer (hidden by default)
+      map.current.addSource('nso', { type: 'geojson', data: nsoData })
+
+      map.current.addLayer({
+        id: 'nso-fill',
+        type: 'fill',
+        source: 'nso',
+        layout: { visibility: 'none' },
+        paint: { 'fill-color': '#E9A23B', 'fill-opacity': 0.3 },
+      })
+
+      map.current.addLayer({
+        id: 'nso-outline',
+        type: 'line',
+        source: 'nso',
+        layout: { visibility: 'none' },
+        paint: { 'line-color': '#E9A23B', 'line-width': 1.5 },
+      })
+
+      // Opportunity Zone layer (hidden by default)
+      map.current.addSource('oz', { type: 'geojson', data: ozData })
+
+      map.current.addLayer({
+        id: 'oz-fill',
+        type: 'fill',
+        source: 'oz',
+        layout: { visibility: 'none' },
+        paint: { 'fill-color': '#2A9D8F', 'fill-opacity': 0.3 },
+      })
+
+      map.current.addLayer({
+        id: 'oz-outline',
+        type: 'line',
+        source: 'oz',
+        layout: { visibility: 'none' },
+        paint: { 'line-color': '#2A9D8F', 'line-width': 1.2 },
       })
     })
 
@@ -340,9 +387,51 @@ export default function App() {
     }
   }
 
+  const toggleLayer = (key) => {
+    const newState = !layers[key]
+    setLayers({ ...layers, [key]: newState })
+    const visibility = newState ? 'visible' : 'none'
+    const layerIds = {
+      zoning: ['zoning-fill', 'zoning-outline'],
+      historic: ['historic-fill', 'historic-outline'],
+      nso: ['nso-fill', 'nso-outline'],
+      oz: ['oz-fill', 'oz-outline'],
+    }
+    layerIds[key].forEach((id) => {
+      if (map.current.getLayer(id)) {
+        map.current.setLayoutProperty(id, 'visibility', visibility)
+      }
+    })
+  }
+
   return (
     <div className="app">
       <div ref={mapContainer} className="map" />
+
+      <div className="legend">
+        <div className="legend-title">Map Layers</div>
+        <label className="legend-item">
+          <input type="checkbox" checked={layers.zoning} onChange={() => toggleLayer('zoning')} />
+          <span className="legend-swatch" style={{ background: '#577590' }} />
+          Zoning
+        </label>
+        <label className="legend-item">
+          <input type="checkbox" checked={layers.historic} onChange={() => toggleLayer('historic')} />
+          <span className="legend-swatch" style={{ background: '#B5179E' }} />
+          Historic Districts
+        </label>
+        <label className="legend-item">
+          <input type="checkbox" checked={layers.nso} onChange={() => toggleLayer('nso')} />
+          <span className="legend-swatch" style={{ background: '#E9A23B' }} />
+          Neighborhood Overlays
+        </label>
+        <label className="legend-item">
+          <input type="checkbox" checked={layers.oz} onChange={() => toggleLayer('oz')} />
+          <span className="legend-swatch" style={{ background: '#2A9D8F' }} />
+          Opportunity Zones
+        </label>
+        <div className="legend-note">Flood risk: click any point to check</div>
+      </div>
 
       {showIntro && (
         <div className="intro-overlay">
@@ -431,15 +520,29 @@ export default function App() {
                   </a>
                 </CollapsibleRow>
               ) : (
-                <CollapsibleRow label="Historic District:" value="No" />
+                <CollapsibleRow label="Historic District:" value="No">
+                  <p className="crow-desc">
+                    This site is not in a designated historic district. Historic overlay
+                    districts protect areas with notable architecture or history by
+                    requiring a Certificate of Appropriateness for exterior changes,
+                    demolition, or new construction. Without one, those extra design
+                    reviews do not apply here.
+                  </p>
+                  <a className="crow-source" href="https://egisdata-dallasgis.hub.arcgis.com/maps/DallasGIS::dallas-landmark-historic-districts/explore" target="_blank" rel="noreferrer">
+                    Learn about Dallas Historic Districts →
+                  </a>
+                </CollapsibleRow>
               )}
 
               {demo && (
                 <CollapsibleRow label="Demolition Delay:" value={`Yes (${demo.name})`}>
                   <p className="crow-desc">
-                    This site is in a Demolition Delay Overlay. Demolition permits can
-                    be delayed up to 45 days to allow time to explore preservation
-                    alternatives. It does not prevent demolition, but adds a review period.
+                    A Demolition Delay Overlay is a preservation tool. It does not stop
+                    demolition, but it adds a waiting period (typically up to 45 days)
+                    before a demolition permit is issued, giving the city and community
+                    time to explore alternatives for older or historically significant
+                    buildings. For a developer, it means a teardown here takes longer to
+                    permit.
                   </p>
                   {demo.notes && demo.notes.trim() && (
                     <p className="crow-meta"><strong>Notes:</strong> {demo.notes}</p>
@@ -450,19 +553,34 @@ export default function App() {
                 </CollapsibleRow>
               )}
 
-{nso && (
+{nso ? (
                 <CollapsibleRow label="Neighborhood Overlay:" value={`Yes (${nso.name})`}>
                   <p className="crow-desc">
-                    This site is in a Neighborhood Stabilization Overlay, which sets
-                    extra standards (such as lot size, setbacks, height, and massing) to
-                    keep new construction and major remodels in scale with the existing
-                    neighborhood. Expect added review beyond base zoning.
+                    A Neighborhood Stabilization Overlay (NSO) protects an established
+                    neighborhood's character. It locks in standards like minimum lot size,
+                    setbacks, height, and building bulk so new construction or major
+                    remodels stay in scale with the existing homes. For a developer, it
+                    means you cannot simply build the largest structure the base zoning
+                    would otherwise allow, there are extra neighborhood-fit rules to meet.
                   </p>
                   {nso.notes && nso.notes.trim() && (
                     <p className="crow-meta"><strong>Notes:</strong> {nso.notes}</p>
                   )}
-                  <a className="crow-source" href="https://experience.arcgis.com/experience/c1ac5a0d0c4044f6976e6294409185a2/page/Dallas-Zoning" target="_blank" rel="noreferrer">
-                    Verify on Dallas Zoning Map →
+                  <a className="crow-source" href="https://dallascityhall.com/departments/sustainabledevelopment/Pages/neighborhood_overlay.aspx" target="_blank" rel="noreferrer">
+                    Verify on Dallas Neighborhood Overlays →
+                  </a>
+                </CollapsibleRow>
+              ) : (
+                <CollapsibleRow label="Neighborhood Overlay:" value="None">
+                  <p className="crow-desc">
+                    This site is not in a Neighborhood Stabilization Overlay (NSO). An NSO
+                    is a light-touch zoning tool that protects an established single-family
+                    neighborhood's character by setting standards for things like lot size,
+                    setbacks, garage placement, and height. Without one, only the base
+                    zoning rules apply here.
+                  </p>
+                  <a className="crow-source" href="https://dallascityhall.com/departments/sustainabledevelopment/Pages/neighborhood_overlay.aspx" target="_blank" rel="noreferrer">
+                    Learn about Dallas Neighborhood Overlays →
                   </a>
                 </CollapsibleRow>
               )}
@@ -471,8 +589,19 @@ export default function App() {
                 <CollapsibleRow label="Flood Risk:" value="Checking..." />
               )}
 
-              {flood && flood.none && (
-                <CollapsibleRow label="Flood Risk:" value="Minimal (not in mapped floodplain)" />
+{flood && flood.none && (
+                <CollapsibleRow label="Flood Risk:" value="Minimal">
+                  <p className="crow-desc">
+                    This site is not in a mapped floodplain, so flood risk is minimal.
+                    Floodplain designations identify areas with a meaningful annual chance
+                    of flooding, which affects building requirements, insurance, and cost.
+                    A point outside the mapped zones has the lowest regulatory flood risk,
+                    though no location is entirely risk-free.
+                  </p>
+                  <a className="crow-source" href="https://www.arcgis.com/apps/webappviewer/index.html?id=8b0adb51996444d4879338b5529aa9cd" target="_blank" rel="noreferrer">
+                    Verify on FEMA Flood Map →
+                  </a>
+                </CollapsibleRow>
               )}
 
               {flood && !flood.loading && !flood.none && (
